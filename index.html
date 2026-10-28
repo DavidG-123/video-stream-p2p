@@ -1,341 +1,398 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P Video Stream</title>
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-    <style>
-        :root {
-            --primary: #2563eb;
-            --danger: #dc2626;
-            --bg: #f8fafc;
-            --card: #ffffff;
-            --text: #1e293b;
-            --warning: #f59e0b;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .app-container {
-            width: 100%;
-            max-width: 900px;
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
-        }
-
-        .card {
-            background: var(--card);
-            padding: 1.5rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-        }
-
-        h2 { margin-top: 0; font-size: 1.25rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem; }
-
-        .control-group {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 1rem;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-
-        input {
-            padding: 8px 12px;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
-            flex-grow: 1;
-            font-size: 1rem;
-        }
-
-        button {
-            padding: 8px 16px;
-            border-radius: 6px;
-            border: none;
-            cursor: pointer;
-            font-weight: 600;
-            transition: opacity 0.2s;
-        }
-
-        .btn-primary { background: var(--primary); color: white; }
-        .btn-danger { background: var(--danger); color: white; }
-        .btn-warning { background: var(--warning); color: white; }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .status {
-            font-size: 0.875rem;
-            margin-bottom: 1rem;
-            padding: 8px;
-            border-radius: 4px;
-            background: #f1f5f9;
-            font-family: monospace;
-        }
-
-        .video-wrapper {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .video-label {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            font-weight: bold;
-            color: #64748b;
-        }
-
-        video {
-            width: 100%;
-            aspect-ratio: 16 / 9;
-            background: #000;
-            border-radius: 8px;
-            object-fit: cover;
-        }
-
-        .peer-id-display {
-            font-weight: bold;
-            color: var(--primary);
-            cursor: pointer;
-            text-decoration: underline;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebRTC Video Chat - Manual Signaling</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #1a1a1a;
+      color: #fff;
+    }
+    .container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .video-section {
+      background: #2a2a2a;
+      padding: 15px;
+      border-radius: 8px;
+    }
+    video {
+      width: 100%;
+      background: #000;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+    .controls {
+      background: #2a2a2a;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    button {
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-right: 10px;
+      font-size: 14px;
+    }
+    button:hover {
+      background: #0052a3;
+    }
+    button:disabled {
+      background: #666;
+      cursor: not-allowed;
+    }
+    textarea {
+      width: 100%;
+      height: 120px;
+      padding: 10px;
+      border: 1px solid #444;
+      border-radius: 5px;
+      background: #1a1a1a;
+      color: #fff;
+      font-family: monospace;
+      font-size: 12px;
+      margin-bottom: 10px;
+      resize: vertical;
+    }
+    .signaling-section {
+      background: #2a2a2a;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .signaling-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+    .signaling-box {
+      background: #1a1a1a;
+      padding: 15px;
+      border-radius: 5px;
+    }
+    .signaling-box h3 {
+      margin-top: 0;
+    }
+    .copy-btn {
+      background: #28a745;
+      font-size: 12px;
+      padding: 8px 12px;
+    }
+    .copy-btn:hover {
+      background: #218838;
+    }
+    .status {
+      padding: 10px;
+      border-radius: 5px;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    .status.connected {
+      background: #28a745;
+      color: white;
+    }
+    .status.error {
+      background: #dc3545;
+      color: white;
+    }
+    .status.waiting {
+      background: #ffc107;
+      color: #000;
+    }
+  </style>
 </head>
 <body>
 
-    <div class="app-container">
-        <!-- Host Section -->
-        <div class="card">
-            <h2>Host Mode</h2>
-            <div class="status" id="host-status">Connecting to server...</div>
-            <div class="control-group">
-                <button id="start-btn" class="btn-primary" disabled>Start Hosting</button>
-                <button id="stop-btn" class="btn-danger" disabled>Stop</button>
-                <button id="host-reconnect-btn" class="btn-warning" style="display:none;">Reconnect</button>
-                <span id="id-label" style="display:none;">Your ID: <span class="peer-id-display" id="my-id">...</span></span>
-            </div>
-            <div class="video-wrapper">
-                <div class="video-label">Local Preview (Host Only)</div>
-                <video id="local-video" autoplay playsinline muted></video>
-            </div>
-        </div>
+<h1>WebRTC Video Chat - Manual Signaling</h1>
 
-        <!-- Guest Section -->
-        <div class="card">
-            <h2>Guest Mode</h2>
-            <div class="status" id="guest-status">Connecting to server...</div>
-            <div class="control-group">
-                <input type="text" id="remote-id" placeholder="Enter Host Peer ID">
-                <button id="join-btn" class="btn-primary" disabled>Join Stream</button>
-                <button id="guest-reconnect-btn" class="btn-warning" style="display:none;">Reconnect</button>
-            </div>
-            <div class="video-wrapper">
-                <div class="video-label">Remote Stream</div>
-                <video id="remote-video" autoplay playsinline muted></video>
-            </div>
-        </div>
+<div class="controls">
+  <button onclick="startAsHost()">Start as Host</button>
+  <button onclick="startAsPeer()">Start as Peer</button>
+  <button onclick="disconnect()">Disconnect</button>
+  <div id="status" class="status"></div>
+</div>
+
+<div class="container">
+  <div class="video-section">
+    <h3>Your Video</h3>
+    <video id="localVideo" autoplay muted playsinline></video>
+  </div>
+  <div class="video-section">
+    <h3>Friend's Video</h3>
+    <video id="remoteVideo" autoplay playsinline></video>
+  </div>
+</div>
+
+<div class="signaling-section">
+  <div class="signaling-row">
+    <div class="signaling-box">
+      <h3>HOST: Generate & Share</h3>
+      <p>Click "Start as Host" above, then copy this offer and send it to your friend:</p>
+      <textarea id="offerBox" readonly placeholder="Offer will appear here..."></textarea>
+      <button class="copy-btn" onclick="copyToClipboard('offerBox')">Copy Offer</button>
     </div>
+    <div class="signaling-box">
+      <h3>PEER: Paste Offer Here</h3>
+      <p>Paste the offer from your host friend:</p>
+      <textarea id="peerOfferInput" placeholder="Paste offer JSON here..."></textarea>
+      <button onclick="startAsPeer()">Generate Answer</button>
+    </div>
+  </div>
+
+  <div class="signaling-row">
+    <div class="signaling-box">
+      <h3>PEER: Share Answer</h3>
+      <p>Copy this answer and send it back to your host:</p>
+      <textarea id="answerBox" readonly placeholder="Answer will appear here..."></textarea>
+      <button class="copy-btn" onclick="copyToClipboard('answerBox')">Copy Answer</button>
+    </div>
+    <div class="signaling-box">
+      <h3>HOST: Paste Answer Here</h3>
+      <p>Paste the answer from your peer friend:</p>
+      <textarea id="hostAnswerInput" placeholder="Paste answer JSON here..."></textarea>
+      <button onclick="completeHostConnection()">Complete Connection</button>
+    </div>
+  </div>
+</div>
 
 <script>
-    let peer = null;
-    let localStream = null;
-    let currentCall = null;
-    let peerReady = false;
-    let reconnectAttempts = 0;
-    const MAX_RECONNECT_ATTEMPTS = 5;
+let peerConnection = null;
+let localStream = null;
+let role = null; // 'host' or 'peer'
 
-    const hostStatus = document.getElementById('host-status');
-    const guestStatus = document.getElementById('guest-status');
-    const myIdDisplay = document.getElementById('my-id');
-    const idLabel = document.getElementById('id-label');
-    const startBtn = document.getElementById('start-btn');
-    const stopBtn = document.getElementById('stop-btn');
-    const hostRecBtn = document.getElementById('host-reconnect-btn');
-    const joinBtn = document.getElementById('join-btn');
-    const guestRecBtn = document.getElementById('guest-reconnect-btn');
-    const remoteIdInput = document.getElementById('remote-id');
-    const localVideo = document.getElementById('local-video');
-    const remoteVideo = document.getElementById('remote-video');
+const updateStatus = (message, type = 'waiting') => {
+  const status = document.getElementById('status');
+  status.textContent = message;
+  status.className = `status ${type}`;
+};
 
-    function initPeer() {
-        if (peer) peer.destroy();
-        
-        peerReady = false;
-        hostRecBtn.style.display = 'none';
-        guestRecBtn.style.display = 'none';
-        hostStatus.innerText = "Connecting to signaling server...";
-        guestStatus.innerText = "Connecting to signaling server...";
-        joinBtn.disabled = true;
-        startBtn.disabled = true;
-        reconnectAttempts = 0;
-
-        // Use default PeerJS server (no config needed)
-        peer = new Peer({
-            debug: 2  // Log warnings and errors
-        });
-
-        peer.on('open', (id) => {
-            myIdDisplay.innerText = id;
-            idLabel.style.display = 'inline';
-            hostStatus.innerText = "✓ Ready to host";
-            guestStatus.innerText = "✓ Ready to join";
-            startBtn.disabled = false;
-            joinBtn.disabled = false;
-            peerReady = true;
-            reconnectAttempts = 0;
-            console.log('Connected. Your ID:', id);
-        });
-
-        peer.on('error', (err) => {
-            console.error('PeerJS Error:', err);
-            handlePeerError(err);
-        });
-
-        peer.on('disconnected', () => {
-            console.warn('Disconnected from signaling server');
-            hostStatus.innerText = "⚠ Connection lost. Click Reconnect.";
-            guestStatus.innerText = "⚠ Connection lost. Click Reconnect.";
-            hostRecBtn.style.display = 'inline-block';
-            guestRecBtn.style.display = 'inline-block';
-            peerReady = false;
-        });
-
-        peer.on('call', (call) => {
-            console.log('Incoming call from:', call.peer);
-            if (localStream) {
-                call.answer(localStream);
-                handleCall(call);
-            } else {
-                console.warn('No local stream to answer with');
-                call.close();
-            }
-        });
-    }
-
-    function handlePeerError(err) {
-        if (err.type === 'socket-closed' || err.type === 'network' || 
-            err.type === 'socket-error' || err.type === 'unavailable-id') {
-            hostStatus.innerText = "⚠ Server connection lost.";
-            guestStatus.innerText = "⚠ Server connection lost.";
-            hostRecBtn.style.display = 'inline-block';
-            guestRecBtn.style.display = 'inline-block';
-            peerReady = false;
-        } else {
-            hostStatus.innerText = `Error: ${err.type}`;
-        }
-    }
-
-    async function startHosting() {
-        try {
-            const constraints = { 
-                video: { 
-                    width: { ideal: 1280 }, 
-                    height: { ideal: 720 } 
-                }, 
-                audio: false 
-            };
-            localStream = await navigator.mediaDevices.getUserMedia(constraints);
-            localVideo.srcObject = localStream;
-            startBtn.disabled = true;
-            stopBtn.disabled = false;
-            hostStatus.innerText = "ߓ᠈osting active. Share your ID with guests.";
-        } catch (err) {
-            hostStatus.innerText = "❌ Camera error: " + err.message;
-            alert("Camera access denied. Please check permissions.");
-        }
-    }
-
-    function joinStream() {
-        const hostId = remoteIdInput.value.trim();
-        if (!hostId) {
-            alert("Enter the host's Peer ID.");
-            return;
-        }
-
-        if (!peerReady || !peer || !peer.id) {
-            alert("Not connected to signaling server. Click 'Reconnect' and try again.");
-            return;
-        }
-
-        guestStatus.innerText = "ߔ砃onnecting...";
-        joinBtn.disabled = true;
-
-        try {
-            const call = peer.call(hostId, null); 
-            if (!call) {
-                throw new Error("Failed to create call.");
-            }
-            handleCall(call);
-        } catch (err) {
-            guestStatus.innerText = "❌ Connection failed.";
-            joinBtn.disabled = false;
-            alert("Failed to connect: " + err.message);
-        }
-    }
-
-    function handleCall(call) {
-        currentCall = call;
-
-        call.on('stream', (remoteStream) => {
-            console.log('Received remote stream');
-            remoteVideo.srcObject = remoteStream;
-            guestStatus.innerText = "✓ Stream active";
-            joinBtn.disabled = false;
-        });
-
-        call.on('close', () => {
-            console.log('Call closed');
-            guestStatus.innerText = "Disconnected";
-            remoteVideo.srcObject = null;
-            joinBtn.disabled = false;
-        });
-
-        call.on('error', (err) => {
-            console.error('Call error:', err);
-            guestStatus.innerText = "❌ Stream error";
-            joinBtn.disabled = false;
-        });
-    }
-
-    function stopHosting() {
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-            localVideo.srcObject = null;
-        }
-        if (currentCall) currentCall.close();
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
-        hostStatus.innerText = "✓ Ready to host";
-        guestStatus.innerText = "Disconnected";
-        remoteVideo.srcObject = null;
-    }
-
-    startBtn.addEventListener('click', startHosting);
-    stopBtn.addEventListener('click', stopHosting);
-    joinBtn.addEventListener('click', joinStream);
-    hostRecBtn.addEventListener('click', initPeer);
-    guestRecBtn.addEventListener('click', initPeer);
+const startAsHost = async () => {
+  try {
+    role = 'host';
+    updateStatus('Initializing as Host...', 'waiting');
     
-    myIdDisplay.addEventListener('click', () => {
-        navigator.clipboard.writeText(myIdDisplay.innerText)
-            .then(() => {
-                const original = myIdDisplay.innerText;
-                myIdDisplay.innerText = "✓ Copied!";
-                setTimeout(() => { myIdDisplay.innerText = original; }, 1500);
-            })
-            .catch(() => alert("Copy failed"));
+    // Get user media
+    localStream = await navigator.mediaDevices.getUserMedia({ 
+      video: true, 
+      audio: true 
     });
+    document.getElementById('localVideo').srcObject = localStream;
+    
+    // Create peer connection
+    peerConnection = new RTCPeerConnection({
+      iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }]
+    });
+    
+    // Add local stream tracks
+    localStream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, localStream);
+    });
+    
+    // Handle remote stream
+    peerConnection.ontrack = (event) => {
+      document.getElementById('remoteVideo').srcObject = event.streams[0];
+    };
+    
+    // Collect ICE candidates
+    const iceCandidates = [];
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        iceCandidates.push(event.candidate);
+      }
+    };
+    
+    // Create offer
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    
+    // Wait a moment for ICE candidates to be collected
+    setTimeout(() => {
+      const offerData = {
+        sdp: offer.sdp,
+        candidates: iceCandidates.map(c => c.candidate)
+      };
+      document.getElementById('offerBox').value = JSON.stringify(offerData, null, 2);
+      updateStatus('Offer generated. Copy and send to peer.', 'waiting');
+    }, 1000);
+    
+  } catch (error) {
+    updateStatus(`Error: ${error.message}`, 'error');
+    console.error(error);
+  }
+};
 
-    initPeer();
+const startAsPeer = async () => {
+  try {
+    role = 'peer';
+    const offerInput = document.getElementById('peerOfferInput').value;
+    
+    if (!offerInput.trim()) {
+      updateStatus('Please paste the offer first', 'error');
+      return;
+    }
+    
+    updateStatus('Initializing as Peer...', 'waiting');
+    
+    const offerData = JSON.parse(offerInput);
+    
+    // Get user media
+    localStream = await navigator.mediaDevices.getUserMedia({ 
+      video: true, 
+      audio: true 
+    });
+    document.getElementById('localVideo').srcObject = localStream;
+    
+    // Create peer connection
+    peerConnection = new RTCPeerConnection({
+      iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }]
+    });
+    
+    // Add local stream tracks
+    localStream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, localStream);
+    });
+    
+    // Handle remote stream
+    peerConnection.ontrack = (event) => {
+      document.getElementById('remoteVideo').srcObject = event.streams[0];
+    };
+    
+    // Set remote description from offer
+    await peerConnection.setRemoteDescription(
+      new RTCSessionDescription({ type: 'offer', sdp: offerData.sdp })
+    );
+    
+    // Add ICE candidates from offer
+    for (const candidate of offerData.candidates) {
+      try {
+        await peerConnection.addIceCandidate(
+          new RTCIceCandidate({ candidate })
+        );
+      } catch (e) {
+        // Some candidates might fail, that's okay
+      }
+    }
+    
+    // Collect ICE candidates
+    const iceCandidates = [];
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        iceCandidates.push(event.candidate);
+      }
+    };
+    
+    // Create answer
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    
+    // Wait for ICE candidates
+    setTimeout(() => {
+      const answerData = {
+        sdp: answer.sdp,
+        candidates: iceCandidates.map(c => c.candidate)
+      };
+      document.getElementById('answerBox').value = JSON.stringify(answerData, null, 2);
+      updateStatus('Answer generated. Copy and send to host.', 'waiting');
+    }, 1000);
+    
+  } catch (error) {
+    updateStatus(`Error: ${error.message}`, 'error');
+    console.error(error);
+  }
+};
+
+const completeHostConnection = async () => {
+  try {
+    const answerInput = document.getElementById('hostAnswerInput').value;
+    
+    if (!answerInput.trim()) {
+      updateStatus('Please paste the answer first', 'error');
+      return;
+    }
+    
+    if (role !== 'host' || !peerConnection) {
+      updateStatus('Start as Host first', 'error');
+      return;
+    }
+    
+    const answerData = JSON.parse(answerInput);
+    
+    // Set remote description from answer
+    await peerConnection.setRemoteDescription(
+      new RTCSessionDescription({ type: 'answer', sdp: answerData.sdp })
+    );
+    
+    // Add ICE candidates from answer
+    for (const candidate of answerData.candidates) {
+      try {
+        await peerConnection.addIceCandidate(
+          new RTCIceCandidate({ candidate })
+        );
+      } catch (e) {
+        // Some candidates might fail, that's okay
+      }
+    }
+    
+    // Monitor connection state
+    peerConnection.onconnectionstatechange = () => {
+      if (peerConnection.connectionState === 'connected') {
+        updateStatus('✓ Connected! Video streaming...', 'connected');
+      } else if (peerConnection.connectionState === 'failed') {
+        updateStatus('Connection failed', 'error');
+      }
+    };
+    
+    updateStatus('Connecting...', 'waiting');
+    
+  } catch (error) {
+    updateStatus(`Error: ${error.message}`, 'error');
+    console.error(error);
+  }
+};
+
+const disconnect = () => {
+  if (peerConnection) {
+    peerConnection.close();
+    peerConnection = null;
+  }
+  if (localStream) {
+    localStream.getTracks().forEach(track => track.stop());
+    localStream = null;
+  }
+  document.getElementById('localVideo').srcObject = null;
+  document.getElementById('remoteVideo').srcObject = null;
+  document.getElementById('offerBox').value = '';
+  document.getElementById('answerBox').value = '';
+  document.getElementById('peerOfferInput').value = '';
+  document.getElementById('hostAnswerInput').value = '';
+  updateStatus('Disconnected', 'waiting');
+};
+
+const copyToClipboard = (elementId) => {
+  const text = document.getElementById(elementId).value;
+  if (text) {
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Copied to clipboard!');
+    });
+  }
+};
+
+// Initialize
+updateStatus('Ready. Click "Start as Host" or "Start as Peer"', 'waiting');
 </script>
+
 </body>
 </html>
