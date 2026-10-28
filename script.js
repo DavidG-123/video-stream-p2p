@@ -24,40 +24,37 @@ async function getMediaStream() {
 }
 
 async function host() {
-  console.log('host() was called');  // Add this FIRST line	
-  const code = Math.random().toString(36).substr(2, 4).toUpperCase();
+  console.log('host() was called');
   role = 'host';
   
-  // Show the code immediately
   document.getElementById('setup').style.display = 'none';
   document.getElementById('info').style.display = 'block';
-  document.getElementById('code').textContent = code;
   document.getElementById('status').textContent = 'Accessing camera...';
   
   const stream = await getMediaStream();
   if (!stream) return;
   
-  peer = new Peer(code);
+  peer = new Peer();  // No custom ID — let PeerJS generate it
+  console.log('Peer created');
   
-  peer.on('open', () => {
+  peer.on('open', (id) => {
+    console.log('Peer ID received:', id);
+    document.getElementById('code').textContent = id;  // Display the real ID
     document.getElementById('status').textContent = 'Waiting for guest...';
   });
 
   peer.on('call', (call) => {
-    // Answer the incoming call and send video stream
     call.answer(localStream);
-    
-    // Handle remote stream (guest's stream if they send one)
     call.on('stream', (remoteStream) => {
       document.getElementById('remoteVideo').srcObject = remoteStream;
       document.getElementById('remoteVideoContainer').style.display = 'block';
     });
-
     document.getElementById('status').textContent = 'Connected!';
     document.getElementById('streamStatus').textContent = 'Streaming video...';
   });
 
   peer.on('error', (e) => {
+    console.error('Peer error:', e);
     document.getElementById('status').textContent = 'Error: ' + e.message;
   });
 }
