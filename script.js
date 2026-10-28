@@ -66,20 +66,19 @@ async function join() {
   if (!code) return;
   role = 'guest';
   
-  const stream = await getMediaStream();
-  if (!stream) return;
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('info').style.display = 'block';
+  document.getElementById('status').textContent = 'Connecting to host...';
   
   peer = new Peer();
   
   peer.on('open', () => {
-    // Call the host to request their video stream
-    const call = peer.call(code, stream);
+    // Call the host WITHOUT sending our own stream (unidirectional)
+    const call = peer.call(code);
     
     call.on('stream', (remoteStream) => {
       document.getElementById('remoteVideo').srcObject = remoteStream;
       document.getElementById('remoteVideoContainer').style.display = 'block';
-      document.getElementById('setup').style.display = 'none';
-      document.getElementById('info').style.display = 'block';
       document.getElementById('status').textContent = 'Connected!';
       document.getElementById('streamStatus').textContent = 'Receiving stream...';
     });
