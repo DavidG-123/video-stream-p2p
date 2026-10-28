@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>P2P Video Stream</title>
-    <!-- PeerJS CDN: Compatible with GitHub Pages -->
     <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <style>
         :root {
@@ -13,6 +12,7 @@
             --bg: #f8fafc;
             --card: #ffffff;
             --text: #1e293b;
+            --warning: #f59e0b;
         }
 
         body {
@@ -69,6 +69,7 @@
 
         .btn-primary { background: var(--primary); color: white; }
         .btn-danger { background: var(--danger); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .status {
@@ -112,13 +113,13 @@
 <body>
 
     <div class="app-container">
-        <!-- Host Section -->
         <div class="card">
             <h2>Host Mode</h2>
             <div class="status" id="host-status">Initializing Peer...</div>
             <div class="control-group">
                 <button id="start-btn" class="btn-primary" disabled>Start Hosting</button>
                 <button id="stop-btn" class="btn-danger" disabled>Stop</button>
+                <button id="reconnect-btn" class="btn-warning" style="display:none;">Reconnect Server</button>
                 <span id="id-label" style="display:none;">Your ID: <span class="peer-id-display" id="my-id">...</span></span>
             </div>
             <div class="video-wrapper">
@@ -127,7 +128,6 @@
             </div>
         </div>
 
-        <!-- Guest Section -->
         <div class="card">
             <h2>Guest Mode</h2>
             <div class="status" id="guest-status">Disconnected</div>
@@ -153,13 +153,22 @@
         const idLabel = document.getElementById('id-label');
         const startBtn = document.getElementById('start-btn');
         const stopBtn = document.getElementById('stop-btn');
+        const reconnectBtn = document.getElementById('reconnect-btn');
         const joinBtn = document.getElementById('join-btn');
         const remoteIdInput = document.getElementById('remote-id');
         const localVideo = document.getElementById('local-video');
         const remoteVideo = document.getElementById('remote-video');
 
         function initPeer() {
-            // Initialize PeerJS
+            // Clean up old peer instance if it exists
+            if (peer) {
+                peer.destroy();
+            }
+
+            reconnectBtn.style.display = 'none';
+            hostStatus.innerText = "Connecting to signaling server...";
+
+            // Initialize Peer with basic config
             peer = new Peer();
 
             peer.on('open', (id) => {
@@ -167,25 +176,25 @@
                 idLabel.style.display = 'inline';
                 hostStatus.innerText = "Peer ready. Click 'Start Hosting' to stream.";
                 startBtn.disabled = false;
-                console.log('PeerJS ID generated:', id);
+                console.log('PeerJS connected. ID:', id);
             });
 
             peer.on('error', (err) => {
                 console.error('PeerJS Error:', err);
-                hostStatus.innerText = `Peer Error: ${err.type}`;
-                if (err.type === 'peer-disconnected') {
-                    guestStatus.innerText = "Host disconnected.";
+                
+                if (err.type === 'socket-closed' || err.type === 'lost-connection') {
+                    hostStatus.innerText = "Server connection lost. Please reconnect.";
+                    reconnectBtn.style.display = 'inline-block';
+                } else {
+                    hostStatus.innerText = `Peer Error: ${err.type}`;
                 }
             });
 
-            // Host Logic: Handle incoming guest calls
             peer.on('call', (call) => {
-                console.log('Incoming call received...');
                 if (localStream) {
                     call.answer(localStream);
                     handleCall(call);
                 } else {
-                    console.warn('Call received but no camera stream active.');
                     call.close();
                 }
             });
@@ -197,41 +206,27 @@
                     video: { ideal: { width: 1280, height: 720 } }, 
                     audio: false 
                 };
-                
                 localStream = await navigator.mediaDevices.getUserMedia(constraints);
                 localVideo.srcObject = localStream;
-                
                 startBtn.disabled = true;
                 stopBtn.disabled = false;
                 hostStatus.innerText = "Hosting active. Waiting for guests...";
-                console.log('Camera active at 720p');
             } catch (err) {
-                console.error('getUserMedia Error:', err);
                 hostStatus.innerText = "Camera error: " + err.message;
-                alert("Could not access camera. Please ensure you are using HTTPS or localhost.");
+                alert("Camera access denied or not found.");
             }
         }
 
         function joinStream() {
             const hostId = remoteIdInput.value.trim();
-            if (!hostId) {
-                alert("Please enter a Host ID.");
-                return;
-            }
+            if (!hostId) return alert("Please enter a Host ID.");
 
             guestStatus.innerText = "Connecting...";
-            
             try {
-                // Initiate call. We pass 'null' for the stream to avoid prompting Guest for camera permissions.
                 const call = peer.call(hostId, null); 
-                
-                if (!call) {
-                    throw new Error("Call object was not created. If you are running this as a local file (file://), please use a local server (like Live Server or Python http.server) or deploy to GitHub Pages.");
-                }
-                
+                if (!call) throw new Error("Call failed to initialize.");
                 handleCall(call);
             } catch (err) {
-                console.error('Join Error:', err);
                 guestStatus.innerText = "Connection failed.";
                 alert(err.message);
             }
@@ -239,21 +234,16 @@
 
         function handleCall(call) {
             currentCall = call;
-            
             call.on('stream', (remoteStream) => {
-                console.log('Remote stream received');
                 remoteVideo.srcObject = remoteStream;
                 guestStatus.innerText = "Stream active";
             });
-
-            call.on('error', (err) => {
-                console.error('Call stream error:', err);
-                guestStatus.innerText = "Stream error occurred.";
-            });
-
             call.on('close', () => {
                 guestStatus.innerText = "Connection closed.";
                 remoteVideo.srcObject = null;
+            });
+            call.on('error', () => {
+                guestStatus.innerText = "Stream error.";
             });
         }
 
@@ -262,10 +252,7 @@
                 localStream.getTracks().forEach(track => track.stop());
                 localVideo.srcObject = null;
             }
-            if (currentCall) {
-                currentCall.close();
-            }
-            
+            if (currentCall) currentCall.close();
             startBtn.disabled = false;
             stopBtn.disabled = true;
             hostStatus.innerText = "Hosting stopped.";
@@ -276,6 +263,7 @@
         startBtn.addEventListener('click', startHosting);
         stopBtn.addEventListener('click', stopHosting);
         joinBtn.addEventListener('click', joinStream);
+        reconnectBtn.addEventListener('click', initPeer);
         
         myIdDisplay.addEventListener('click', () => {
             navigator.clipboard.writeText(myIdDisplay.innerText);
