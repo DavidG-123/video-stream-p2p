@@ -74,7 +74,9 @@ function host() {
     document.getElementById('info').style.display = 'block';
     document.getElementById('code').textContent = code;
     document.getElementById('chatArea').style.display = 'block';
-    document.getElementById('controls-section').style.display = 'block';
+    
+    // FIX: Use querySelector for class-based elements
+    document.querySelector('.controls-section').style.display = 'block';
     document.getElementById('sendBtn').style.display = 'block';
     document.getElementById('status').textContent = 'Waiting for guest...';
     
@@ -103,7 +105,9 @@ function join() {
     conn.on('open', () => {
       document.getElementById('setup').style.display = 'none';
       document.getElementById('chatArea').style.display = 'block';
-      document.getElementById('controls-section').style.display = 'block';
+      
+      // FIX: Use querySelector for class-based elements
+      document.querySelector('.controls-section').style.display = 'block';
       document.getElementById('sendBtn').style.display = 'block';
       document.getElementById('status').textContent = 'Connected!';
       
@@ -138,7 +142,7 @@ function setupConnection(c) {
   });
 }
 
-// Listen for color picker changes
+// Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
   const colorPicker = document.getElementById('colorPicker');
   if (colorPicker) {
@@ -146,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
     colorPicker.addEventListener('input', updateColorFromPicker);
   }
   
-  // Show controls only when connected (handled in host/join functions)
+  // Hide controls section until connected
   const controlsSection = document.querySelector('.controls-section');
   if (controlsSection) {
     controlsSection.style.display = 'none';
