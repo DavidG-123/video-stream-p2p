@@ -173,6 +173,21 @@ let peerConnection = null;
 let localStream = null;
 let role = null; // 'host' or 'peer'
 
+// ICE servers with both STUN and TURN
+const iceServers = [
+  { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+  {
+    urls: ['turn:openrelay.metered.ca:80'],
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: ['turn:openrelay.metered.ca:443'],
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  }
+];
+
 const updateStatus = (message, type = 'waiting') => {
   const status = document.getElementById('status');
   status.textContent = message;
@@ -191,10 +206,8 @@ const startAsHost = async () => {
     });
     document.getElementById('localVideo').srcObject = localStream;
     
-    // Create peer connection
-    peerConnection = new RTCPeerConnection({
-      iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }]
-    });
+    // Create peer connection with TURN servers
+    peerConnection = new RTCPeerConnection({ iceServers });
     
     // Add local stream tracks
     localStream.getTracks().forEach(track => {
@@ -214,11 +227,16 @@ const startAsHost = async () => {
       }
     };
     
+    // Monitor ICE connection state
+    peerConnection.oniceconnectionstatechange = () => {
+      console.log('ICE state:', peerConnection.iceConnectionState);
+    };
+    
     // Create offer
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
     
-    // Wait a moment for ICE candidates to be collected
+    // Wait for ICE candidates
     setTimeout(() => {
       const offerData = {
         sdp: offer.sdp,
@@ -226,7 +244,7 @@ const startAsHost = async () => {
       };
       document.getElementById('offerBox').value = JSON.stringify(offerData, null, 2);
       updateStatus('Offer generated. Copy and send to peer.', 'waiting');
-    }, 1000);
+    }, 2000);
     
   } catch (error) {
     updateStatus(`Error: ${error.message}`, 'error');
@@ -255,10 +273,8 @@ const startAsPeer = async () => {
     });
     document.getElementById('localVideo').srcObject = localStream;
     
-    // Create peer connection
-    peerConnection = new RTCPeerConnection({
-      iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }]
-    });
+    // Create peer connection with TURN servers
+    peerConnection = new RTCPeerConnection({ iceServers });
     
     // Add local stream tracks
     localStream.getTracks().forEach(track => {
@@ -294,6 +310,11 @@ const startAsPeer = async () => {
       }
     };
     
+    // Monitor ICE connection state
+    peerConnection.oniceconnectionstatechange = () => {
+      console.log('ICE state:', peerConnection.iceConnectionState);
+    };
+    
     // Create answer
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
@@ -306,7 +327,7 @@ const startAsPeer = async () => {
       };
       document.getElementById('answerBox').value = JSON.stringify(answerData, null, 2);
       updateStatus('Answer generated. Copy and send to host.', 'waiting');
-    }, 1000);
+    }, 2000);
     
   } catch (error) {
     updateStatus(`Error: ${error.message}`, 'error');
@@ -351,7 +372,7 @@ const completeHostConnection = async () => {
       if (peerConnection.connectionState === 'connected') {
         updateStatus('✓ Connected! Video streaming...', 'connected');
       } else if (peerConnection.connectionState === 'failed') {
-        updateStatus('Connection failed', 'error');
+        updateStatus('Connection failed. Check browser console & about:webrtc', 'error');
       }
     };
     
