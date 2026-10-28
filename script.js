@@ -71,25 +71,34 @@ async function join() {
   peer = new Peer();
   
   peer.on('open', () => {
-    // Call the host WITHOUT sending our own stream (unidirectional)
-    const call = peer.call(code);
-    
-    call.on('stream', (remoteStream) => {
-      document.getElementById('remoteVideo').srcObject = remoteStream;
-      document.getElementById('remoteVideoContainer').style.display = 'block';
-      document.getElementById('status').textContent = 'Connected!';
-      document.getElementById('streamStatus').textContent = 'Receiving stream...';
-    });
-
-    call.on('error', (e) => {
-      document.getElementById('status').textContent = 'Error: ' + e.message;
-    });
-
-    call.on('close', () => {
-      document.getElementById('status').textContent = 'Connection closed';
-      document.getElementById('remoteVideoContainer').style.display = 'none';
-    });
+  console.log('Guest peer ID:', peer.id);
+  console.log('Calling host with code:', code);
+  
+  const call = peer.call(code);
+  
+  if (!call) {
+    document.getElementById('status').textContent = 'Error: Failed to call host. Wrong code?';
+    console.error('peer.call() returned undefined. Host ID may be invalid.');
+    return;
+  }
+  
+  call.on('stream', (remoteStream) => {
+    console.log('Received stream from host');
+    document.getElementById('remoteVideo').srcObject = remoteStream;
+    document.getElementById('remoteVideoContainer').style.display = 'block';
+    document.getElementById('status').textContent = 'Connected!';
+    document.getElementById('streamStatus').textContent = 'Receiving stream...';
   });
+
+  call.on('error', (e) => {
+    document.getElementById('status').textContent = 'Call error: ' + e.message;
+  });
+
+  call.on('close', () => {
+    document.getElementById('status').textContent = 'Connection closed';
+    document.getElementById('remoteVideoContainer').style.display = 'none';
+  });
+});
 
   peer.on('error', (e) => {
     document.getElementById('status').textContent = 'Error: ' + e.message;
