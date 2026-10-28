@@ -81,8 +81,19 @@
         </div>
     </div>
 
-    <script src="https://unpkg.com/trystero@latest/build/trystero.min.js"></script>
+    <script type="module">
+    import * as T from 'https://esm.sh/trystero@0.26.0';
+    window.Trystero = T;
+    
+    // Initialize after Trystero loads
+    window.TrysteroReady = true;
+</script>
     <script>
+	async function waitForTrystero() {
+    while (!window.Trystero) {
+        await new Promise(r => setTimeout(r, 100));
+    }
+}
         const localVideo = document.getElementById('local');
         const remoteVideo = document.getElementById('remote');
         const statusEl = document.getElementById('status');
@@ -111,8 +122,9 @@
                 roomDisplay.textContent = rid;
                 
                 // Use DHT transport with IPFS fallback
-                const { joinRoom: join } = window.Trystero || Trystero;
-                room = join({ appId: 'p2p-stream', roomId: rid }, 'dht');
+                const Trystero = await getTrystero();
+const { joinRoom: join } = Trystero;
+room = join({ appId: 'p2p-stream', roomId: rid }, 'dht');
                 
                 setupRoom();
                 startBtn.disabled = true;
@@ -134,8 +146,9 @@
                 stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
                 localVideo.srcObject = stream;
                 
-                const { joinRoom: join } = window.Trystero || Trystero;
-                room = join({ appId: 'p2p-stream', roomId: rid }, 'dht');
+                const Trystero = await getTrystero();
+const { joinRoom: join } = Trystero;
+room = join({ appId: 'p2p-stream', roomId: rid }, 'dht');
                 
                 roomDisplay.textContent = rid;
                 setupRoom();
