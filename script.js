@@ -24,6 +24,7 @@ async function getMediaStream() {
 }
 
 async function host() {
+  console.log('host() was called');  // Add this FIRST line	
   const code = Math.random().toString(36).substr(2, 4).toUpperCase();
   role = 'host';
   
