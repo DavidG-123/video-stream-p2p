@@ -1,114 +1,154 @@
-let peer, conn, localStream, role;
-const isMobile = /iPhone|iPad|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+// script.js
+let peer, conn;
+const GRID_SIZE = 8;
+const TILE_COUNT = GRID_SIZE * GRID_SIZE; // 64 tiles
 
-// Video constraints for 1280x720
-const videoConstraints = {
-  audio: true,
-  video: {
-    width: { ideal: 1280 },
-    height: { ideal: 720 },
-    facingMode: 'user'
-  }
-};
+// Canvas state: array of 64 color values
+let myCanvas = new Array(TILE_COUNT).fill('#ffffff');
+let peerCanvas = new Array(TILE_COUNT).fill('#ffffff');
+let selectedColor = '#3498db';
 
-async function getMediaStream() {
+function initializeCanvases() {
+  renderCanvas('canvas', myCanvas);
+  renderCanvas('peerCanvas', peerCanvas);
+}
+
+function renderCanvas(canvasId, canvasData) {
+  const container = document.getElementById(canvasId);
+  container.innerHTML = ''; // Clear
+  
+  canvasData.forEach((color, index) => {
+    const tile = document.createElement('div');
+    tile.className = 'tile';
+    tile.style.backgroundColor = color;
+    tile.onclick = () => tileClicked(index);
+    container.appendChild(tile);
+  });
+}
+
+function tileClicked(index) {
+  myCanvas[index] = selectedColor;
+  renderCanvas('canvas', myCanvas);
+}
+
+function setColor(color) {
+  selectedColor = color;
+  document.getElementById('colorPicker').value = color;
+}
+
+function updateColorFromPicker() {
+  selectedColor = document.getElementById('colorPicker').value;
+}
+
+// Serialize canvas to JSON (very compact)
+function serializeCanvas(canvasData) {
+  return JSON.stringify(canvasData);
+}
+
+// Deserialize canvas from JSON
+function deserializeCanvas(jsonString) {
   try {
-    localStream = await navigator.mediaDevices.getUserMedia(videoConstraints);
-    document.getElementById('localVideo').srcObject = localStream;
-    return localStream;
-  } catch (error) {
-    document.getElementById('streamStatus').textContent = 'Error: Cannot access camera/mic. ' + error.message;
-    console.error('Media access error:', error);
+    return JSON.parse(jsonString);
+  } catch (e) {
+    console.error('Failed to deserialize canvas:', e);
     return null;
   }
 }
 
-async function host() {
-  console.log('host() was called');
-  role = 'host';
+function sendCanvas() {
+  if (conn && conn.open) {
+    const serialized = serializeCanvas(myCanvas);
+    conn.send(serialized);
+    document.getElementById('status').textContent = `Canvas sent (${serialized.length} bytes)`;
+  } else {
+    document.getElementById('status').textContent = 'Not connected!';
+  }
+}
+
+function host() {
+  const code = Math.random().toString(36).substr(2, 4).toUpperCase();
+  peer = new Peer(code);
   
-  document.getElementById('setup').style.display = 'none';
-  document.getElementById('info').style.display = 'block';
-  document.getElementById('status').textContent = 'Accessing camera...';
-  
-  const stream = await getMediaStream();
-  if (!stream) return;
-  
-  peer = new Peer();  // No custom ID — let PeerJS generate it
-  console.log('Peer created');
-  
-  peer.on('open', (id) => {
-    console.log('Peer ID received:', id);
-    document.getElementById('code').textContent = id;  // Display the real ID
+  peer.on('open', () => {
+    document.getElementById('setup').style.display = 'none';
+    document.getElementById('info').style.display = 'block';
+    document.getElementById('code').textContent = code;
+    document.getElementById('chatArea').style.display = 'block';
+    document.getElementById('controls-section').style.display = 'block';
+    document.getElementById('sendBtn').style.display = 'block';
     document.getElementById('status').textContent = 'Waiting for guest...';
+    
+    initializeCanvases();
   });
-
-  peer.on('call', (call) => {
-    call.answer(localStream);
-    call.on('stream', (remoteStream) => {
-      document.getElementById('remoteVideo').srcObject = remoteStream;
-      document.getElementById('remoteVideoContainer').style.display = 'block';
-    });
+  
+  peer.on('connection', (c) => {
+    setupConnection(c);
     document.getElementById('status').textContent = 'Connected!';
-    document.getElementById('streamStatus').textContent = 'Streaming video...';
   });
-
+  
   peer.on('error', (e) => {
-    console.error('Peer error:', e);
-    document.getElementById('status').textContent = 'Error: ' + e.message;
+    document.getElementById('status').textContent = 'Error: ' + e;
   });
 }
 
-async function join() {
+function join() {
   const code = document.getElementById('joinCode').value.toUpperCase();
   if (!code) return;
-  role = 'guest';
-  
-  document.getElementById('setup').style.display = 'none';
-  document.getElementById('info').style.display = 'block';
-  document.getElementById('status').textContent = 'Connecting to host...';
   
   peer = new Peer();
   
   peer.on('open', () => {
-  console.log('Guest peer ID:', peer.id);
-  console.log('Calling host with code:', code);
-  
-  const call = peer.call(code);
-  
-  if (!call) {
-    document.getElementById('status').textContent = 'Error: Failed to call host. Wrong code?';
-    console.error('peer.call() returned undefined. Host ID may be invalid.');
-    return;
-  }
-  
-  call.on('stream', (remoteStream) => {
-    console.log('Received stream from host');
-    document.getElementById('remoteVideo').srcObject = remoteStream;
-    document.getElementById('remoteVideoContainer').style.display = 'block';
-    document.getElementById('status').textContent = 'Connected!';
-    document.getElementById('streamStatus').textContent = 'Receiving stream...';
+    conn = peer.connect(code);
+    
+    conn.on('open', () => {
+      document.getElementById('setup').style.display = 'none';
+      document.getElementById('chatArea').style.display = 'block';
+      document.getElementById('controls-section').style.display = 'block';
+      document.getElementById('sendBtn').style.display = 'block';
+      document.getElementById('status').textContent = 'Connected!';
+      
+      initializeCanvases();
+      setupConnection(conn);
+    });
+    
+    conn.on('error', (e) => {
+      document.getElementById('status').textContent = 'Error: ' + e;
+    });
   });
+}
 
-  call.on('error', (e) => {
-    document.getElementById('status').textContent = 'Call error: ' + e.message;
+function setupConnection(c) {
+  conn = c;
+  
+  conn.on('data', (data) => {
+    // Receive canvas from peer
+    const receivedCanvas = deserializeCanvas(data);
+    
+    if (receivedCanvas && Array.isArray(receivedCanvas) && receivedCanvas.length === TILE_COUNT) {
+      peerCanvas = receivedCanvas;
+      renderCanvas('peerCanvas', peerCanvas);
+      document.getElementById('status').textContent = `Peer sent canvas (${data.length} bytes)`;
+    } else {
+      console.error('Invalid canvas data received');
+    }
   });
-
-  call.on('close', () => {
+  
+  conn.on('close', () => {
     document.getElementById('status').textContent = 'Connection closed';
-    document.getElementById('remoteVideoContainer').style.display = 'none';
-  });
-});
-
-  peer.on('error', (e) => {
-    document.getElementById('status').textContent = 'Error: ' + e.message;
   });
 }
 
-function stopStream() {
-  if (localStream) {
-    localStream.getTracks().forEach(track => track.stop());
+// Listen for color picker changes
+document.addEventListener('DOMContentLoaded', () => {
+  const colorPicker = document.getElementById('colorPicker');
+  if (colorPicker) {
+    colorPicker.addEventListener('change', updateColorFromPicker);
+    colorPicker.addEventListener('input', updateColorFromPicker);
   }
-}
-
-window.addEventListener('beforeunload', stopStream);
+  
+  // Show controls only when connected (handled in host/join functions)
+  const controlsSection = document.querySelector('.controls-section');
+  if (controlsSection) {
+    controlsSection.style.display = 'none';
+  }
+});

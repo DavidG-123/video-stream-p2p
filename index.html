@@ -1,246 +1,58 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P Video Streaming</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: #1a1a1a; color: #fff; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        h1 { text-align: center; margin-bottom: 30px; color: #4CAF50; }
-        
-        .controls {
-            display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
-            margin-bottom: 20px; padding: 20px; background: #2a2a2a; border-radius: 8px;
-        }
-        .controls input, .controls button {
-            padding: 10px 20px; border: none; border-radius: 4px; font-size: 14px; cursor: pointer;
-        }
-        .controls input { background: #3a3a3a; color: #fff; min-width: 150px; }
-        .controls button { background: #4CAF50; color: white; font-weight: bold; transition: background 0.3s; }
-        .controls button:hover:not(:disabled) { background: #45a049; }
-        .controls button:disabled { background: #666; cursor: not-allowed; }
-        
-        .status {
-            text-align: center; margin-bottom: 20px; padding: 15px;
-            background: #2a2a2a; border-radius: 8px; font-size: 13px;
-        }
-        .status span { display: inline-block; margin-right: 30px; }
-        .label { color: #aaa; font-weight: bold; }
-        .value { color: #4CAF50; }
-        
-        .videos {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
-            margin-bottom: 20px;
-        }
-        .video-box {
-            background: #000; border-radius: 8px; overflow: hidden;
-            border: 2px solid #333; position: relative;
-        }
-        .video-box video { width: 100%; height: auto; display: block; background: #000; }
-        .video-label {
-            position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7);
-            padding: 5px 10px; border-radius: 4px; font-size: 12px; color: #aaa;
-        }
-        
-        @media (max-width: 768px) {
-            .videos { grid-template-columns: 1fr; }
-            .controls { flex-direction: column; }
-            .status span { display: block; margin: 8px 0; }
-        }
-    </style>
+<html><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PeerJS Pixel Canvas</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>ߎ堐2P Video Stream</h1>
-        
-        <div class="controls">
-            <button id="startBtn" onclick="startBroadcast()">Start Broadcasting</button>
-            <input type="text" id="roomId" placeholder="Room ID or paste to join" maxlength="8">
-            <button id="joinBtn" onclick="joinRoom()">Join Stream</button>
-            <button id="stopBtn" onclick="stop()" disabled>Stop</button>
-        </div>
-        
-        <div class="status">
-            <span><span class="label">Status:</span> <span class="value" id="status">Ready</span></span>
-            <span><span class="label">Room:</span> <span class="value" id="roomDisplay">-</span></span>
-            <span><span class="label">Peers:</span> <span class="value" id="peers">0</span></span>
-            <span><span class="label">Connection:</span> <span class="value" id="connection">-</span></span>
-        </div>
-        
-        <div class="videos">
-            <div class="video-box">
-                <video id="local" autoplay muted playsinline></video>
-                <div class="video-label">ߓ頙our Stream</div>
-            </div>
-            <div class="video-box">
-                <video id="remote" autoplay playsinline></video>
-                <div class="video-label">ߑ堒emote Stream</div>
-            </div>
-        </div>
+  <div class="container">
+    <h2>Pixel Canvas - P2P</h2>
+    
+    <div id="setup">
+      <button onclick="host()">Host</button>
+      <div class="setup-join">
+        <input id="joinCode" placeholder="Enter host code">
+        <button onclick="join()">Join</button>
+      </div>
     </div>
 
-    <script type="module">
-    import * as T from 'https://esm.sh/trystero@0.26.0';
-    window.Trystero = T;
-    
-    // Initialize after Trystero loads
-    window.TrysteroReady = true;
-</script>
-    <script>
-	async function waitForTrystero() {
-    while (!window.Trystero) {
-        await new Promise(r => setTimeout(r, 100));
-    }
-}
-        const localVideo = document.getElementById('local');
-        const remoteVideo = document.getElementById('remote');
-        const statusEl = document.getElementById('status');
-        const roomDisplay = document.getElementById('roomDisplay');
-        const peerCount = document.getElementById('peers');
-        const connectionEl = document.getElementById('connection');
-        const startBtn = document.getElementById('startBtn');
-        const joinBtn = document.getElementById('joinBtn');
-        const stopBtn = document.getElementById('stopBtn');
-        const roomIdInput = document.getElementById('roomId');
+    <div id="info">
+      <strong>Your Code:</strong> <span id="code"></span>
+    </div>
 
-        let room, stream, peers = {}, config = { iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }] };
+    <div id="chatArea">
+      <div class="canvas-section">
+        <h3>Your Canvas</h3>
+        <div id="canvas" class="canvas"></div>
+      </div>
 
-        // Generate random room ID
-        function genRoomId() { return Math.random().toString(36).substring(2, 8).toUpperCase(); }
+      <div class="controls-section">
+        <label for="colorPicker">Pick Color:</label>
+        <input type="color" id="colorPicker" value="#3498db">
+        
+        <div class="preset-colors">
+          <button class="color-btn" style="background: #ffffff;" onclick="setColor('#ffffff')" title="White"></button>
+          <button class="color-btn" style="background: #000000;" onclick="setColor('#000000')" title="Black"></button>
+          <button class="color-btn" style="background: #FF0000;" onclick="setColor('#FF0000')" title="Red"></button>
+          <button class="color-btn" style="background: #00FF00;" onclick="setColor('#00FF00')" title="Green"></button>
+          <button class="color-btn" style="background: #0000FF;" onclick="setColor('#0000FF')" title="Blue"></button>
+          <button class="color-btn" style="background: #FFFF00;" onclick="setColor('#FFFF00')" title="Yellow"></button>
+          <button class="color-btn" style="background: #FF00FF;" onclick="setColor('#FF00FF')" title="Magenta"></button>
+          <button class="color-btn" style="background: #00FFFF;" onclick="setColor('#00FFFF')" title="Cyan"></button>
+        </div>
 
-        // Start broadcasting
-        async function startBroadcast() {
-            try {
-                statusEl.textContent = 'Requesting camera...';
-                stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
-                localVideo.srcObject = stream;
-                
-                const rid = genRoomId();
-                roomIdInput.value = rid;
-                roomDisplay.textContent = rid;
-                
-                // Use DHT transport with IPFS fallback
-                const Trystero = await getTrystero();
-const { joinRoom: join } = Trystero;
-room = join({ appId: 'p2p-stream', roomId: rid }, 'dht');
-                
-                setupRoom();
-                startBtn.disabled = true;
-                stopBtn.disabled = false;
-                statusEl.textContent = 'Broadcasting...';
-                connectionEl.textContent = 'Active';
-            } catch (e) {
-                statusEl.textContent = 'Camera error: ' + e.message;
-            }
-        }
+        <button id="sendBtn" onclick="sendCanvas()" style="display: none; width: 100%;">Send Canvas</button>
+      </div>
 
-        // Join existing stream
-        async function joinRoom() {
-            try {
-                const rid = roomIdInput.value.trim().toUpperCase();
-                if (!rid) return alert('Enter room ID');
-                
-                statusEl.textContent = 'Requesting camera...';
-                stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
-                localVideo.srcObject = stream;
-                
-                const Trystero = await getTrystero();
-const { joinRoom: join } = Trystero;
-room = join({ appId: 'p2p-stream', roomId: rid }, 'dht');
-                
-                roomDisplay.textContent = rid;
-                setupRoom();
-                startBtn.disabled = true;
-                joinBtn.disabled = true;
-                stopBtn.disabled = false;
-                statusEl.textContent = 'Joining...';
-                connectionEl.textContent = 'Connecting';
-            } catch (e) {
-                statusEl.textContent = 'Error: ' + e.message;
-            }
-        }
+      <div class="canvas-section">
+        <h3>Peer's Canvas</h3>
+        <div id="peerCanvas" class="canvas"></div>
+      </div>
+    </div>
 
-        // Setup room handlers
-        function setupRoom() {
-            const [sendVideo, getVideo] = room.makeAction('video');
-            const [sendStats, getStats] = room.makeAction('stats');
+    <div id="status"></div>
+  </div>
 
-            // Send local stream to peers
-            const pc = new RTCPeerConnection({ iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }] });
-            stream.getTracks().forEach(track => pc.addTrack(track, stream));
-
-            pc.onicecandidate = e => {
-                if (e.candidate) sendStats({ type: 'ice', candidate: e.candidate });
-            };
-
-            pc.onconnectionstatechange = () => {
-                const state = pc.connectionState;
-                connectionEl.textContent = state.charAt(0).toUpperCase() + state.slice(1);
-                if (state === 'failed') statusEl.textContent = 'Connection failed';
-            };
-
-            pc.onnegotiationneeded = async () => {
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                sendStats({ type: 'offer', sdp: offer.sdp });
-            };
-
-            // Receive and handle remote tracks
-            pc.ontrack = e => {
-                remoteVideo.srcObject = e.streams[0];
-                statusEl.textContent = 'Connected';
-            };
-
-            // Handle signaling messages
-            getStats((msg, peer) => {
-                (async () => {
-                    if (msg.type === 'offer') {
-                        await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: msg.sdp }));
-                        const ans = await pc.createAnswer();
-                        await pc.setLocalDescription(ans);
-                        sendStats({ type: 'answer', sdp: ans.sdp });
-                    } else if (msg.type === 'answer') {
-                        await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: msg.sdp }));
-                    } else if (msg.type === 'ice' && msg.candidate) {
-                        try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch (e) {}
-                    }
-                })();
-            });
-
-            // Track peer connections
-            room.onPeerJoin(peer => {
-                peers[peer] = true;
-                peerCount.textContent = Object.keys(peers).length;
-                statusEl.textContent = 'Peer joined';
-            });
-
-            room.onPeerLeave(peer => {
-                delete peers[peer];
-                peerCount.textContent = Object.keys(peers).length;
-                if (Object.keys(peers).length === 0) remoteVideo.srcObject = null;
-                statusEl.textContent = 'Peer left';
-            });
-        }
-
-        // Stop streaming
-        function stop() {
-            if (stream) stream.getTracks().forEach(t => t.stop());
-            if (localVideo) localVideo.srcObject = null;
-            if (remoteVideo) remoteVideo.srcObject = null;
-            if (room) room.leave();
-            
-            peers = {};
-            roomIdInput.value = '';
-            roomDisplay.textContent = '-';
-            peerCount.textContent = '0';
-            statusEl.textContent = 'Ready';
-            connectionEl.textContent = '-';
-            startBtn.disabled = false;
-            joinBtn.disabled = false;
-            stopBtn.disabled = true;
-        }
-    </script>
-</body>
-</html>
+  <script src="https://cdn.jsdelivr.net/npm/peerjs@1.4.7/dist/peerjs.min.js"></script>
+  <script src="script.js"></script>
+</body></html>
