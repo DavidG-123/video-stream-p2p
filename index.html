@@ -1,132 +1,288 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>PeerJS Video Stream</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 20px;
-      background: #f0f0f0;
-    }
-    #setup {
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-    }
-    button {
-      padding: 10px 20px;
-      margin: 5px;
-      cursor: pointer;
-      background: #007bff;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      font-size: 16px;
-    }
-    button:hover {
-      background: #0056b3;
-    }
-    input {
-      padding: 10px;
-      margin: 5px;
-      font-size: 16px;
-      width: 200px;
-    }
-    #info {
-      background: white;
-      padding: 15px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      display: none;
-    }
-    #code {
-      font-size: 32px;
-      font-weight: bold;
-      color: #007bff;
-      letter-spacing: 5px;
-    }
-    #status {
-      font-size: 16px;
-      color: #666;
-      margin-top: 10px;
-    }
-    .video-container {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      margin-top: 20px;
-    }
-    .video-box {
-      background: #000;
-      border-radius: 8px;
-      overflow: hidden;
-      position: relative;
-    }
-    .video-box h3 {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      color: white;
-      margin: 0;
-      background: rgba(0,0,0,0.5);
-      padding: 8px 12px;
-      border-radius: 4px;
-      font-size: 14px;
-    }
-    video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    #remoteVideo {
-      display: none;
-    }
-    #remoteVideoContainer {
-      display: none;
-    }
-    .hidden {
-      display: none !important;
-    }
-    #streamStatus {
-      font-size: 14px;
-      color: #666;
-      margin-top: 10px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P Video Stream</title>
+    <!-- PeerJS CDN: Compatible with GitHub Pages -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --danger: #dc2626;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .card {
+            background: var(--card);
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        h2 { margin-top: 0; font-size: 1.25rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem; }
+
+        .control-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        input {
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            flex-grow: 1;
+            font-size: 1rem;
+        }
+
+        button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .status {
+            font-size: 0.875rem;
+            margin-bottom: 1rem;
+            padding: 8px;
+            border-radius: 4px;
+            background: #f1f5f9;
+            font-family: monospace;
+        }
+
+        .video-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .video-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: bold;
+            color: #64748b;
+        }
+
+        video {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: #000;
+            border-radius: 8px;
+            object-fit: cover;
+        }
+
+        .peer-id-display {
+            font-weight: bold;
+            color: var(--primary);
+            cursor: pointer;
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body>
-  <h1>PeerJS Video Stream</h1>
 
-  <div id="setup">
-    <button onclick="host()">Host (Stream Video)</button>
-    <div style="margin-top: 20px;">
-      <input type="text" id="joinCode" placeholder="Enter host code">
-      <button onclick="join()">Join</button>
+    <div class="app-container">
+        <!-- Host Section -->
+        <div class="card">
+            <h2>Host Mode</h2>
+            <div class="status" id="host-status">Initializing Peer...</div>
+            <div class="control-group">
+                <button id="start-btn" class="btn-primary" disabled>Start Hosting</button>
+                <button id="stop-btn" class="btn-danger" disabled>Stop</button>
+                <span id="id-label" style="display:none;">Your ID: <span class="peer-id-display" id="my-id">...</span></span>
+            </div>
+            <div class="video-wrapper">
+                <div class="video-label">Local Preview (Host Only)</div>
+                <video id="local-video" autoplay playsinline muted></video>
+            </div>
+        </div>
+
+        <!-- Guest Section -->
+        <div class="card">
+            <h2>Guest Mode</h2>
+            <div class="status" id="guest-status">Disconnected</div>
+            <div class="control-group">
+                <input type="text" id="remote-id" placeholder="Enter Host Peer ID">
+                <button id="join-btn" class="btn-primary">Join Stream</button>
+            </div>
+            <div class="video-wrapper">
+                <div class="video-label">Remote Stream</div>
+                <video id="remote-video" autoplay playsinline muted></video>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <div id="info">
-    <h3>Your Code</h3>
-    <div id="code"></div>
-    <div id="status"></div>
-    <div id="streamStatus"></div>
-  </div>
+    <script>
+        let peer = null;
+        let localStream = null;
+        let currentCall = null;
 
-  <div class="video-container">
-    <div class="video-box">
-      <h3>Your Video</h3>
-      <video id="localVideo" autoplay muted playsinline></video>
-    </div>
-    <div class="video-box" id="remoteVideoContainer">
-      <h3>Guest Video</h3>
-      <video id="remoteVideo" autoplay playsinline></video>
-    </div>
-  </div>
+        const hostStatus = document.getElementById('host-status');
+        const guestStatus = document.getElementById('guest-status');
+        const myIdDisplay = document.getElementById('my-id');
+        const idLabel = document.getElementById('id-label');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const joinBtn = document.getElementById('join-btn');
+        const remoteIdInput = document.getElementById('remote-id');
+        const localVideo = document.getElementById('local-video');
+        const remoteVideo = document.getElementById('remote-video');
 
-  <script src="peerjs.min.js"></script>
-  <script src="script.js?v=1.3.0"></script>
+        function initPeer() {
+            // Initialize PeerJS
+            peer = new Peer();
+
+            peer.on('open', (id) => {
+                myIdDisplay.innerText = id;
+                idLabel.style.display = 'inline';
+                hostStatus.innerText = "Peer ready. Click 'Start Hosting' to stream.";
+                startBtn.disabled = false;
+                console.log('PeerJS ID generated:', id);
+            });
+
+            peer.on('error', (err) => {
+                console.error('PeerJS Error:', err);
+                hostStatus.innerText = `Peer Error: ${err.type}`;
+                if (err.type === 'peer-disconnected') {
+                    guestStatus.innerText = "Host disconnected.";
+                }
+            });
+
+            // Host Logic: Handle incoming guest calls
+            peer.on('call', (call) => {
+                console.log('Incoming call received...');
+                if (localStream) {
+                    call.answer(localStream);
+                    handleCall(call);
+                } else {
+                    console.warn('Call received but no camera stream active.');
+                    call.close();
+                }
+            });
+        }
+
+        async function startHosting() {
+            try {
+                const constraints = { 
+                    video: { ideal: { width: 1280, height: 720 } }, 
+                    audio: false 
+                };
+                
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
+                localVideo.srcObject = localStream;
+                
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                hostStatus.innerText = "Hosting active. Waiting for guests...";
+                console.log('Camera active at 720p');
+            } catch (err) {
+                console.error('getUserMedia Error:', err);
+                hostStatus.innerText = "Camera error: " + err.message;
+                alert("Could not access camera. Please ensure you are using HTTPS or localhost.");
+            }
+        }
+
+        function joinStream() {
+            const hostId = remoteIdInput.value.trim();
+            if (!hostId) {
+                alert("Please enter a Host ID.");
+                return;
+            }
+
+            guestStatus.innerText = "Connecting...";
+            
+            try {
+                // Initiate call. We pass 'null' for the stream to avoid prompting Guest for camera permissions.
+                const call = peer.call(hostId, null); 
+                
+                if (!call) {
+                    throw new Error("Call object was not created. If you are running this as a local file (file://), please use a local server (like Live Server or Python http.server) or deploy to GitHub Pages.");
+                }
+                
+                handleCall(call);
+            } catch (err) {
+                console.error('Join Error:', err);
+                guestStatus.innerText = "Connection failed.";
+                alert(err.message);
+            }
+        }
+
+        function handleCall(call) {
+            currentCall = call;
+            
+            call.on('stream', (remoteStream) => {
+                console.log('Remote stream received');
+                remoteVideo.srcObject = remoteStream;
+                guestStatus.innerText = "Stream active";
+            });
+
+            call.on('error', (err) => {
+                console.error('Call stream error:', err);
+                guestStatus.innerText = "Stream error occurred.";
+            });
+
+            call.on('close', () => {
+                guestStatus.innerText = "Connection closed.";
+                remoteVideo.srcObject = null;
+            });
+        }
+
+        function stopHosting() {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localVideo.srcObject = null;
+            }
+            if (currentCall) {
+                currentCall.close();
+            }
+            
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            hostStatus.innerText = "Hosting stopped.";
+            guestStatus.innerText = "Disconnected";
+            remoteVideo.srcObject = null;
+        }
+
+        startBtn.addEventListener('click', startHosting);
+        stopBtn.addEventListener('click', stopHosting);
+        joinBtn.addEventListener('click', joinStream);
+        
+        myIdDisplay.addEventListener('click', () => {
+            navigator.clipboard.writeText(myIdDisplay.innerText);
+            alert("ID copied!");
+        });
+
+        initPeer();
+    </script>
 </body>
 </html>
