@@ -27,15 +27,18 @@ async function host() {
   const code = Math.random().toString(36).substr(2, 4).toUpperCase();
   role = 'host';
   
+  // Show the code immediately
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('info').style.display = 'block';
+  document.getElementById('code').textContent = code;
+  document.getElementById('status').textContent = 'Accessing camera...';
+  
   const stream = await getMediaStream();
   if (!stream) return;
   
   peer = new Peer(code);
   
   peer.on('open', () => {
-    document.getElementById('setup').style.display = 'none';
-    document.getElementById('info').style.display = 'block';
-    document.getElementById('code').textContent = code;
     document.getElementById('status').textContent = 'Waiting for guest...';
   });
 
